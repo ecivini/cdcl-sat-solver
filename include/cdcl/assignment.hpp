@@ -104,9 +104,12 @@ public:
   }
 
   void backtrack(int level) {
-    for (auto &assignment : this->m_assignments) {
-      if (assignment.second.decision_level > level) {
-        this->unassign(assignment.first);
+    auto assignment = this->m_assignments.begin();
+    while(assignment != this->m_assignments.end()) {
+      if (assignment->second.decision_level > level) {
+        assignment = this->m_assignments.erase(assignment);
+      } else {
+        assignment++;
       }
     }
   }
@@ -126,7 +129,7 @@ public:
 
   friend std::ostream& operator<< (std::ostream &os, PartialAssignment const &assignment) { 
     for (auto const& var : assignment.m_assignments) {
-      std::cout << "Variable " << var.first << " = " << var.second.value << std::endl;
+      os << "Variable " << var.first << " = " << var.second.value << std::endl;
     }
 
     return os;

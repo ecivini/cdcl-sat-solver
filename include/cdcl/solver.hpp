@@ -66,13 +66,11 @@ public:
     if (result.status == ClauseStatus::CONFLICT) {
       return false;
     }
-
     // Solve loop
     while(! this->allVariablesAssigned()) {
       LiteralAssignment branch_var = this->branch();
       this->m_assignment.setDecisionLevel(this->m_assignment.decisionLevel() + 1);
       this->m_assignment.assign(branch_var.first, branch_var.second, std::nullopt);
-        
       while(true) {
         UnitPropagationResult unit_result = this->unitPropagate();
         if (unit_result.status != ClauseStatus::CONFLICT) break;
@@ -194,9 +192,15 @@ private:
   Clause resolve(Clause &a, Clause &b, int resolvent) {
     std::set<Literal> resolved;
 
-    std::set_union(std::begin(a.literals()), std::end(a.literals()),
-      std::begin(b.literals()), std::end(b.literals()),                  
-      std::inserter(resolved, std::begin(resolved)));  
+    std::set<Literal> clause_union;
+
+    for (auto &literal : a.literals()) {
+      resolved.insert(literal);
+    }
+
+    for (auto &literal : b.literals()) {
+      resolved.insert(literal);
+    }
 
     resolved.erase(Literal(resolvent, true));
     resolved.erase(Literal(resolvent, false));
@@ -208,12 +212,19 @@ private:
     int resolvent = -1;
     std::set<Literal> clause_union;
 
-    std::set_union(std::begin(a.literals()), std::end(a.literals()),
-      std::begin(b.literals()), std::end(b.literals()),                  
-      std::inserter(clause_union, std::begin(clause_union)));  
+    for (auto &literal : a.literals()) {
+      clause_union.insert(literal);
+    }
+
+    for (auto &literal : b.literals()) {
+      clause_union.insert(literal);
+    }
 
     for (auto literal : clause_union) {
-      if (clause_union.find(Literal(literal.variable(), !literal.negated())) != clause_union.end()) {
+      bool contains_literal = clause_union.find(Literal(literal.variable(), false)) != clause_union.end();
+      bool contains_negated = clause_union.find(Literal(literal.variable(), true)) != clause_union.end();
+
+      if (contains_negated && contains_literal) {
         return literal.variable();
       }
     }
@@ -227,54 +238,62 @@ private:
     auto assignments_at_level = this->m_assignment.getLiteralsAtCurrentDecisionLevel();
 
     Clause learnt_clause = conflict_clause;
-    int dl_to_backtrack_to = this->m_assignment.decisionLevel() - 1;
+    int dl_to_backtrack_to = 0;
 
     while (assignments_at_level.size() != 1) {
       // Pick first clause that has a resolvent
       std::set<Literal> learnt_clause_literals = learnt_clause.literals();
 
       // Look for a resolvent and eventually resolve
-      for (auto &literals_at_dl : assignments_at_level) {
-        int resolvent = hasResolvent(learnt_clause, literals_at_dl.second.antecedent.value());
-        if (resolvent == -1) continue;
+      auto literals_at_dl = assignments_at_level.begin();
+      while (literals_at_dl != assignments_at_level.end()) {
+        int resolvent = hasResolvent(learnt_clause, literals_at_dl->second.antecedent.value());
+        if (resolvent == -1) {
+          literals_at_dl++;
+          continue;
+        };
 
         // Resolve
-        learnt_clause = this->resolve(learnt_clause, literals_at_dl.second.antecedent.value(), resolvent);
-        assignments_at_level.erase(resolvent);
+        learnt_clause = this->resolve(learnt_clause, literals_at_dl->second.antecedent.value(), resolvent);
+        literals_at_dl = assignments_at_level.erase(literals_at_dl);
       }
 
-      // Learnt clause is now final, according to 1° UIP rule
+    }
 
-      // Backtrack to the highest branching point s.t. the stack contains all-but-one
-      // literals in the conflict set, and then unit-propagate the unassigned literal 
-      // on the learnt clause
+    // Learnt clause is now final, according to 1° UIP rule
 
-      std::set<Literal> conflict_set = std::set<Literal>();
-      for (auto literal : learnt_clause.literals()) {
-        conflict_set.insert(Literal(literal.variable(), !literal.negated()));
-      } 
+    // Backtrack to the highest branching point s.t. the stack contains all-but-one
+    // literals in the conflict set, and then unit-propagate the unassigned literal 
+    // on the learnt clause
 
-      int current_dl_in_search = dl_to_backtrack_to;
-      while (true) {
-        assignments_at_level = this->m_assignment.getLiteralsAtDecisionLevel(current_dl_in_search);
+    std::set<Literal> conflict_set = std::set<Literal>();
+    for (auto literal : learnt_clause.literals()) {
+      conflict_set.insert(Literal(literal.variable(), !literal.negated()));
+    } 
 
-        // Do they differ by only one literal?
-        int difference = 0;
-        for (auto &literal : assignments_at_level) {
-          // We don't really care about the polarity of the literal
-          bool contains_literal = conflict_set.find(Literal(literal.first, true)) != conflict_set.end();
-          contains_literal = contains_literal || (conflict_set.find(Literal(literal.first, false)) != conflict_set.end());
-          
-          if (! contains_literal) {
-            difference++;
-          }
-        }
+    int current_dl_in_search = 0;
+    while (current_dl_in_search < this->m_assignment.decisionLevel()) {
+      assignments_at_level = this->m_assignment.getLiteralsAtDecisionLevel(current_dl_in_search);
 
-        // Is this a candidate dl?
-        if (difference == 1) {
-          dl_to_backtrack_to = current_dl_in_search;
+      // Do they differ by only one literal?
+      int difference = 0;
+      for (auto &literal : assignments_at_level) {
+        // We don't really care about the polarity of the literal
+        bool contains_literal = conflict_set.find(Literal(literal.first, true)) != conflict_set.end();
+        contains_literal = contains_literal || (conflict_set.find(Literal(literal.first, false)) != conflict_set.end());
+        
+        if (! contains_literal) {
+          difference++;
         }
       }
+
+      // Is this a candidate dl?
+      if (difference == 1) {
+        dl_to_backtrack_to = current_dl_in_search;
+        break;
+      }
+
+      current_dl_in_search++;
     }
 
     return std::make_pair(dl_to_backtrack_to, learnt_clause);

@@ -59,7 +59,7 @@ public:
   }
 
   friend bool operator<(const Literal &lhs, const Literal &rhs) {
-    return lhs.m_variable < rhs.m_variable;
+    return std::tie(lhs.m_variable, lhs.m_negated) < std::tie(rhs.m_variable, rhs.m_negated);
   }
   
 };
