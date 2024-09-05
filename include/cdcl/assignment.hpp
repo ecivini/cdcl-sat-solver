@@ -76,24 +76,6 @@ public:
     this->m_assignments.erase(variable);
   }
 
-  bool satisfy(Formula &formula) {
-    for (auto clause : formula.clauses()) {
-      bool satisfied = false;
-      for (auto literal : clause.literals()) {
-        if (this->value(literal)) {
-          satisfied = true;
-          break;
-        }
-      }
-
-      if (!satisfied) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   void clear() {
     this->m_decision_level = -1;
     this->m_assignments.clear();
@@ -143,8 +125,7 @@ public:
   // Operators 
 
   friend std::ostream& operator<< (std::ostream &os, PartialAssignment const &assignment) { 
-    for (auto const& var : assignment.m_assignments)
-    {
+    for (auto const& var : assignment.m_assignments) {
       std::cout << "Variable " << var.first << " = " << var.second.value << std::endl;
     }
 
