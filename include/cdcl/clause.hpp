@@ -73,7 +73,6 @@ public:
   }
 
   friend bool operator==(const Clause &lhs, const Clause &rhs) {
-    std::cout << "aioooo" << std::endl;
     for (auto &literal : lhs.m_literals) {
       if (rhs.m_literals.find(literal) == rhs.m_literals.end()) {
         return false;
