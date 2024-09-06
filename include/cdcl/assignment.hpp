@@ -89,12 +89,12 @@ public:
     return this->getLiteralsAtDecisionLevel(this->m_decision_level);
   }
 
-  std::unordered_map<int, Assignment> getLiteralsAtDecisionLevel(int level) {
+  std::unordered_map<int, Assignment> getLiteralsAtDecisionLevel(int level, bool must_have_antecedent = true) {
     std::unordered_map<int, Assignment> assignments_at_level = std::unordered_map<int, Assignment>();
 
     // Returns all literals assigned at the current decision level that have an antecedent clause
     for (auto &assignment : this->m_assignments) {
-      if (assignment.second.decision_level == level && assignment.second.antecedent != std::nullopt) {
+      if (assignment.second.decision_level == level && (!must_have_antecedent || assignment.second.antecedent != std::nullopt)) {
         auto pair = std::make_pair(assignment.first, assignment.second);
         assignments_at_level[assignment.first] = assignment.second;
       }

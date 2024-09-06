@@ -273,7 +273,7 @@ private:
 
     int current_dl_in_search = 0;
     while (current_dl_in_search < this->m_assignment.decisionLevel()) {
-      assignments_at_level = this->m_assignment.getLiteralsAtDecisionLevel(current_dl_in_search);
+      assignments_at_level = this->m_assignment.getLiteralsAtDecisionLevel(current_dl_in_search, false);
 
       // Do they differ by only one literal?
       int difference = 0;
